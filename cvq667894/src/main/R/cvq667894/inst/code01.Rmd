@@ -1,0 +1,85 @@
+---
+title: "Original code"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
+
+```
+
+```{r}
+
+display <- function(x){
+  options(digits = 6)
+  cat(sprintf('\n%s\n',x))
+  get(x) |> print(na.print = "")
+}
+
+# Example parameters
+mean_vec <- c(-0.9162907, 1.7917595, 0.4054651,
+              -4.0628870, -2.3354756, 2.9487660, 0.5000000)
+
+sigma_1_3 <- matrix(
+  data = c(0.2, 0.080913370, -0.028509365, 0.08091337, 0.05,
+           0.003619695, -0.02850937, 0.003619695,  0.05),
+  nrow = 3, byrow = TRUE
+)
+
+sigma_4_6 <- matrix(
+  data = c(1.2125951, 0.6215642, -0.13200927, 0.6215642, 0.7448492,
+           -0.12008678,  -0.1320093, -0.1200868,  0.07623229),
+  nrow = 3, byrow = TRUE
+)
+
+sigma_7_7 <- 0.05
+
+row_1_cors <- c(-0.3, -0.3, 0.3, 0.6)
+
+# Build base block diagonal covariance matrix
+cov_matrix <- matrix(data = 0, nrow = 7, ncol = 7)
+cov_matrix[1:3, 1:3] <- sigma_1_3
+cov_matrix[4:6, 4:6] <- sigma_4_6
+cov_matrix[7,7] <- sigma_7_7
+
+# Covariances for 4:6 works
+good_matrix <- cov_matrix
+for(j in 4:6){ # Rescaling of correlation with the standard deviations
+  good_matrix[1, j] <- row_1_cors[j-3]*sqrt(good_matrix[1,1]*good_matrix[j,j])
+  good_matrix[j, 1] <- good_matrix[1, j]
+}
+
+# Covariance for 7 breaks it
+bad_matrix <- good_matrix
+bad_matrix[1, 7] <- row_1_cors[4]*sqrt(bad_matrix[1,1]*bad_matrix[7,7])
+bad_matrix[7, 1] <- bad_matrix[1, 7]
+```
+
+```{r}
+invisible(lapply(ls(),display))
+```
+
+### "Unspecified" elements of covariance matrix
+The code specifies the "unspecified" elements are zero.  What's the basis for this?
+
+
+As an alternative, you might find the maximum entropy (least constrained) covariance matrix
+meeting the constraints you care about.  Ignoring symmetric duplicate constraints, the requirements are:
+
+```{r}
+spec_matrix <- matrix(rep(NA,7*7),ncol = 7)
+for(i in 1:7){
+  for(j in 1:7){
+    if(j>i)next
+    if(bad_matrix[i,j]==0) next
+    spec_matrix[i,j]=bad_matrix[i,j]
+  }
+}
+display('spec_matrix')
+```
+
+```{}
+# rmnorm(1, mean = mean_vec, varcov = good_matrix)
+# rmnorm(1, mean = mean_vec, varcov = bad_matrix)
+```
